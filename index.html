@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>業務の実施状況</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1D2C4C">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap">
+<style>
+/* moveo デザイン基準書（2026-10-20）準拠：白地・黒とグレー・アクセントは濃紺1色・BIZ UDPゴシック・左揃え・表は横線だけ・面は塗らない。白地固定の1テーマ */
+:root{
+  --black:#151617; --gray-d:#5D6064; --gray-l:#B9BBBE; --gray-xl:#ECECED; --white:#FFFFFF;
+  --accent:#1D2C4C; --red:#C8281E; /* 失敗だけに使う（本人判断 2026-11-21・基準書の1色ルールの例外） */
+  --font:"BIZ UDPGothic","BIZ UDPゴシック",system-ui,sans-serif;
+  color-scheme:light;
+}
+html,body{margin:0}
+body{background:var(--white);color:var(--black);font-family:var(--font);font-size:15px;line-height:1.6;overflow-x:hidden}
+.wrap{max-width:900px;margin:0 auto;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:40px;box-sizing:border-box}
+.note{color:var(--gray-d);font-size:13px}
+.stale{color:var(--red);font-weight:700;font-size:14px;border-bottom:2px solid var(--red);padding-bottom:8px}
+.empty{color:var(--gray-d);font-size:14px;border-top:3px solid var(--accent);padding-top:14px}
+
+header{display:grid;gap:6px}
+h1{font-size:24px;margin:0;font-weight:700;text-wrap:balance}
+h2{font-size:17px;margin:0;font-weight:700;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+h2::before{content:"";width:20px;height:3px;background:var(--black);flex:none}
+h2 small{font-weight:400;font-size:12px;color:var(--gray-d)}
+section{display:grid;gap:12px;min-width:0}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* 要約：大きな数字はここの1つだけ */
+.summary{display:grid;grid-template-columns:auto 1fr;gap:6px 28px;align-items:start;border-top:3px solid var(--accent);padding-top:14px;min-width:0}
+.big{display:grid;gap:0}
+.big b{font-size:56px;line-height:1;color:var(--accent)}
+.big span{font-size:13px;font-weight:700}
+.summary ul{margin:4px 0 0;padding-left:1.2em;display:grid;gap:2px;min-width:0}
+.summary li{font-weight:700;overflow-wrap:anywhere}
+.summary li.fail{color:var(--red)}
+.summary .none{margin:4px 0 0;color:var(--gray-d)}
+.summary .rest{grid-column:1/-1;color:var(--gray-d);font-size:13px;border-top:1px solid var(--gray-l);padding-top:8px;overflow-wrap:anywhere}
+@media (max-width:460px){.summary{grid-template-columns:1fr}}
+
+/* 工程表 */
+.gantt{display:grid;min-width:640px;font-size:12px}
+.gantt .h{color:var(--gray-d);text-align:center;font-size:10px;padding-bottom:4px;border-bottom:1px solid var(--black)}
+.gantt .h.today{color:var(--accent);font-weight:700}
+.gantt .lab{padding:7px 8px 7px 0;font-size:13px;border-bottom:1px solid var(--gray-l);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gantt .lab.ng{font-weight:700;color:var(--accent)}
+.gantt .lab.fail{font-weight:700;color:var(--red)}
+.gantt .c{border-bottom:1px solid var(--gray-l);position:relative;min-height:34px}
+.gantt .c.we{background-image:repeating-linear-gradient(0deg,transparent 0 3px,var(--gray-xl) 3px 4px)}
+.gantt .c.tday::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--accent)}
+.mk{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:12px;height:12px;border-radius:50%;background:var(--black)}
+.mk.due{background:var(--white);border:1.5px dashed var(--black);border-radius:0;width:11px;height:11px}
+.legend{display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:var(--gray-d);align-items:center}
+.legend i{display:inline-block;width:11px;height:11px;vertical-align:-1px;margin-right:5px}
+
+/* 表（横線だけ） */
+table{border-collapse:collapse;width:100%;min-width:620px;font-size:13px}
+th,td{text-align:left;padding:10px 12px 10px 0;vertical-align:middle}
+th{font-size:12px;color:var(--gray-d);font-weight:400;border-bottom:1px solid var(--black)}
+td{border-bottom:1px solid var(--gray-l)}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+td .sub{display:block;font-size:11px;color:var(--gray-d);font-weight:400}
+.state{font-weight:400;white-space:nowrap}
+.state.ng{font-weight:700;color:var(--accent)}
+.state.fail{font-weight:700;color:var(--red)}
+.state.unk{color:var(--gray-d)}
+.nm-fail{font-weight:700;color:var(--red)}
+.steps{display:flex;align-items:center;flex-wrap:nowrap;gap:0;white-space:nowrap}
+.st{font-size:12px}
+.st::before{content:"□ ";color:var(--gray-d)}
+.st.d::before{content:"■ ";color:var(--black)}
+.st.n{font-weight:700}
+.arr{color:var(--gray-d);font-size:11px;padding:0 6px}
+.bar{display:flex;align-items:center;gap:8px}
+.bar .track{flex:1;min-width:60px;height:6px;background:var(--gray-xl)}
+.bar .fill{height:100%;background:var(--black)}
+
+/* 録音の流れ */
+.flow{display:flex;align-items:stretch;min-width:720px}
+.node{flex:1;border:1px solid var(--gray-l);padding:10px 12px;display:grid;gap:2px;font-size:12px;align-content:start}
+.node b{font-size:14px}
+.node .s{font-weight:400}
+.node .who{color:var(--gray-d);font-size:11px}
+.node.bad{border:2px solid var(--red)}
+.node.bad .s{font-weight:700;color:var(--red)}
+.node.late .s{font-weight:700;color:var(--accent)}
+.node.hold{border-style:dashed}
+.flow .ar{display:grid;place-items:center;width:26px;flex:none;font-size:16px}
+.flow .ar.stop{color:var(--gray-l)}
+
+/* 7日表 */
+.heat{display:grid;grid-template-columns:minmax(12em,1.6fr) repeat(7,minmax(34px,1fr)) minmax(7em,1fr);min-width:640px;font-size:12px}
+.heat .hd{color:var(--gray-d);text-align:center;padding-bottom:6px;font-size:11px;border-bottom:1px solid var(--black)}
+.heat .hd.l{text-align:left}
+.heat .grp{grid-column:1/-1;font-size:12px;color:var(--gray-d);font-weight:700;padding:14px 0 4px}
+.heat .nm{padding:7px 8px 7px 0;font-size:13px;border-bottom:1px solid var(--gray-l)}
+.heat .cl{display:grid;place-items:center;border-bottom:1px solid var(--gray-l);padding:5px 3px;font-weight:700;font-size:13px}
+.heat .cl i{display:grid;place-items:center;width:100%;max-width:26px;height:18px;font-style:normal}
+.heat .cl i.o{background:var(--black)}
+.heat .cl i.x{background:var(--red);color:var(--white)}
+.heat .cl i.n{color:var(--gray-l)}
+.heat .nx{padding:7px 0 7px 10px;color:var(--gray-d);border-bottom:1px solid var(--gray-l);font-size:12px;display:flex;align-items:center}
+.heat .nm.ng{font-weight:700;color:var(--red)}
+
+footer{color:var(--gray-d);font-size:12px;border-top:1px solid var(--gray-l);padding-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+/* 描画：status.json（DATA）から全部組み立てる。Node での確認用に renderPage を単独で呼べる形にしてある */
+var WD = ['日', '月', '火', '水', '木', '金', '土'];
+var STALE_MS = 3 * 60 * 60 * 1000;
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+/* "2026-11-21T12:20:00+09:00" → {y,m,d,hh,mm}（文字列のまま読む。端末のタイムゾーンに左右されない） */
+function parts(iso) {
+  var r = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/.exec(String(iso || ''));
+  if (!r) return null;
+  return { y: +r[1], m: +r[2], d: +r[3], hh: r[4] || '', mm: r[5] || '' };
+}
+function weekday(y, m, d) { return new Date(Date.UTC(y, m - 1, d)).getUTCDay(); }
+function fmtStamp(iso) {
+  var p = parts(iso);
+  if (!p) return esc(iso || '不明');
+  return p.m + '/' + p.d + '（' + WD[weekday(p.y, p.m, p.d)] + '）' + (p.hh ? p.hh + ':' + p.mm : '');
+}
+
+function shell(inner) {
+  return inner + '<footer>出しているのは業務名・日時・件数だけです。利用者名・職員名・要配慮情報は載せません。</footer>';
+}
+
+function renderPage(data, nowMs) {
+  if (!data || typeof data !== 'object' || !data.month) {
+    return shell(
+      '<header><h1>業務の実施状況</h1></header>' +
+      '<div class="empty">まだデータが届いていません。PC の集計が初めて送信を終えると、ここに表示されます。<br>' +
+      'しばらく経っても変わらないときは、PC の <b>jisshi-jokyo</b> のタイマーと送信先の設定（~/.config/jisshi-jokyo/env）を確かめてください。</div>');
+  }
+
+  var mp = /^(\d{4})-(\d{2})/.exec(data.month) || [];
+  var Y = +mp[1], M = +mp[2];
+  var days = new Date(Date.UTC(Y, M, 0)).getUTCDate();
+  var tp = parts(data.today);
+  var today = (tp && tp.y === Y && tp.m === M) ? tp.d : 0;
+  var monthly = data.monthly || [];
+  var alerts = data.alerts || [];
+  var pending = data.pending || [];
+  var h = '';
+
+  /* 古いデータの警告 */
+  var gen = Date.parse(data.generated_at);
+  if (isNaN(gen) || nowMs - gen > STALE_MS) {
+    h += '<div class="stale">✕ PC からの更新が止まっています（最終 ' + fmtStamp(data.generated_at) + '）。下の内容はその時点のものです。</div>';
+  }
+
+  h += '<header><h1>業務の実施状況　' + Y + '年' + M + '月</h1>' +
+       '<div class="note">最終更新 ' + fmtStamp(data.generated_at) + '　PC から1時間ごとに更新</div></header>';
+
+  /* 要約 */
+  h += '<div class="summary"><div class="big"><b>' + alerts.length + '</b><span>要対応</span></div>';
+  if (alerts.length) {
+    h += '<ul>' + alerts.map(function (a) {
+      return a.level === 'fail'
+        ? '<li class="fail">✕ ' + esc(a.text) + '</li>'
+        : '<li>' + esc(a.text) + '</li>';
+    }).join('') + '</ul>';
+  } else {
+    h += '<p class="none">止まっているものはありません。</p>';
+  }
+  h += '<div class="rest">今月まだ（期限前）' + pending.length + '件' +
+       (pending.length ? '：' + pending.map(esc).join('・') : '') +
+       '　／　済み・正常 ' + esc(data.ok_count == null ? '—' : data.ok_count) + '件</div></div>';
+
+  /* 工程表 */
+  if (monthly.length) {
+    var g = '<div class="gantt" style="grid-template-columns:9.5em repeat(' + days + ',minmax(16px,1fr))"><div class="h"></div>';
+    for (var d = 1; d <= days; d++) g += '<div class="h' + (d === today ? ' today' : '') + '">' + d + '</div>';
+    monthly.forEach(function (r) {
+      var marks = r.marks || [];
+      var dp = parts(r.due);
+      var dueDay = (dp && dp.y === Y && dp.m === M) ? dp.d : 0;
+      var cls = r.level === 'fail' ? ' fail' : (r.level === 'late' ? ' ng' : '');
+      g += '<div class="lab' + cls + '" title="' + esc(r.name) + '">' + (r.level === 'fail' ? '✕ ' : '') + esc(r.name) + '</div>';
+      for (var d2 = 1; d2 <= days; d2++) {
+        var w = weekday(Y, M, d2);
+        var inner = marks.indexOf(d2) !== -1 ? '<span class="mk"></span>' : (dueDay === d2 ? '<span class="mk due"></span>' : '');
+        g += '<div class="c' + (w === 0 || w === 6 ? ' we' : '') + (d2 === today ? ' tday' : '') + '">' + inner + '</div>';
+      }
+    });
+    g += '</div>';
+    h += '<section><h2>今月の工程表 <small>いつ何をしたか</small></h2><div class="scroll">' + g + '</div>' +
+      '<div class="legend">' +
+      '<span><i style="background:var(--black);border-radius:50%"></i>実施した日</span>' +
+      '<span><i style="border:1.5px dashed var(--black)"></i>期限</span>' +
+      '<span><i style="background-image:repeating-linear-gradient(0deg,transparent 0 3px,var(--gray-l) 3px 4px)"></i>土日</span>' +
+      (today ? '<span><i style="width:2px;background:var(--accent)"></i>今日（' + today + '日）</span>' : '') +
+      '</div></section>';
+  }
+
+  /* 毎月の業務 */
+  if (monthly.length) {
+    var t = '<table><thead><tr><th>業務</th><th>段階（■ 済　□ まだ）</th><th>進み具合</th><th>状態</th><th>期限</th></tr></thead><tbody>';
+    monthly.forEach(function (r) {
+      var steps = r.steps || [];
+      var nextIdx = -1;
+      for (var i = 0; i < steps.length; i++) { if (!steps[i].done) { nextIdx = i; break; } }
+      var st = steps.map(function (s, i) {
+        return '<span class="st' + (s.done ? ' d' : (i === nextIdx ? ' n' : '')) + '">' + esc(s.label) + '</span>';
+      }).join('<span class="arr">→</span>');
+      var pg = r.progress || {};
+      var pct = pg.total ? Math.max(0, Math.min(100, Math.round(100 * (pg.done || 0) / pg.total))) : (r.state === '済' ? 100 : 0);
+      var lv = r.level;
+      var name = esc(r.name);
+      if (lv === 'late') name = '<b>' + name + '</b>';
+      if (lv === 'fail') name = '<span class="nm-fail">✕ ' + name + '</span>';
+      if (r.note) name += '<span class="sub">' + esc(r.note) + '</span>';
+      var stCls = lv === 'fail' ? ' fail' : (lv === 'late' ? ' ng' : (lv === 'unknown' ? ' unk' : ''));
+      var stTxt = esc(r.state || '');
+      if (lv === 'fail') stTxt = '✕ ' + stTxt;
+      if (lv === 'unknown') stTxt = '－ ' + stTxt;
+      var due = r.due_label || r.due || '—';
+      due = esc(due);
+      if (lv === 'late') due = '<b>' + due + '</b>';
+      t += '<tr><td>' + name + '</td>' +
+        '<td><div class="steps">' + st + '</div></td>' +
+        '<td><div class="bar"><div class="track"><div class="fill" style="width:' + pct + '%"></div></div><span class="num">' + esc(pg.label || '') + '</span></div></td>' +
+        '<td><span class="state' + stCls + '">' + stTxt + '</span></td>' +
+        '<td class="num">' + due + '</td></tr>';
+    });
+    t += '</tbody></table>';
+    h += '<section><h2>毎月の業務 <small>成果物と状態ファイルから自動で判定</small></h2><div class="scroll">' + t + '</div></section>';
+  }
+
+  /* 録音の流れ */
+  var pl = data.pipeline || [];
+  if (pl.length) {
+    var f = '<div class="flow">';
+    pl.forEach(function (n, i) {
+      if (i > 0) f += '<div class="ar' + (pl[i - 1].level === 'fail' ? ' stop' : '') + '">→</div>';
+      var held = n.level === 'pending' || (i > 0 && pl[i - 1].level === 'fail');
+      var cls = n.level === 'fail' ? ' bad' : (n.level === 'late' ? ' late' : (held ? ' hold' : ''));
+      f += '<div class="node' + cls + '"><b>' + esc(n.name) + '</b>' +
+        '<span class="s">' + (n.level === 'fail' ? '✕ ' : '') + esc(n.status_text) + '</span>' +
+        '<span class="who">' + esc(n.who) + '</span></div>';
+    });
+    f += '</div>';
+    h += '<section><h2>録音の流れ <small>どこで止まっているか</small></h2><div class="scroll">' + f + '</div></section>';
+  }
+
+  /* 自動化の直近7日 */
+  var au = data.automation || {};
+  var ad = au.days || [];
+  if (ad.length && (au.groups || []).length) {
+    var cols = ad.length;
+    var s = '<div class="heat" style="grid-template-columns:minmax(12em,1.6fr) repeat(' + cols + ',minmax(34px,1fr)) minmax(7em,1fr)">' +
+      '<div class="hd l">自動化</div>' +
+      ad.map(function (x) { var p = parts(x); return '<div class="hd">' + (p ? p.d + '日' : esc(x)) + '</div>'; }).join('') +
+      '<div class="hd l">次回</div>';
+    au.groups.forEach(function (gr) {
+      s += '<div class="grp">' + esc(gr.name) + '</div>';
+      (gr.items || []).forEach(function (it) {
+        var cells = it.cells || [];
+        var bad = cells.indexOf('fail') !== -1 || it.last_result === 'fail';
+        s += '<div class="nm' + (bad ? ' ng' : '') + '">' + (bad ? '✕ ' : '') + esc(it.name) + '</div>';
+        for (var k = 0; k < cols; k++) {
+          var c = cells[k];
+          s += '<div class="cl">' + (c === 'ok' ? '<i class="o" title="正常"></i>' : (c === 'fail' ? '<i class="x" title="失敗">✕</i>' : '<i class="n" title="予定なし">－</i>')) + '</div>';
+        }
+        var nx = it.next == null || it.next === '' ? '—' : String(it.next);
+        if (/^\d/.test(nx)) nx = '次回 ' + nx;
+        s += '<div class="nx">' + esc(nx) + '</div>';
+      });
+    });
+    s += '</div>';
+    h += '<section><h2>自動化の直近' + cols + '日 <small>■ 正常　✕ 失敗　－ 予定なし（土日・PC停止）</small></h2><div class="scroll">' + s + '</div></section>';
+  }
+
+  return shell(h);
+}
+
+(function () {
+  if (typeof document === 'undefined') return;
+  var API = "https://script.google.com/macros/s/AKfycbyAoCgUwDL0-mb8-avqg2qo2qvXi-zS9FtTJofY_FgMh1OdCHLqoqs8SBhjnmbS0MZe0w/exec";
+  var KEY_NAME = 'jisshi_k', CACHE_NAME = 'jisshi_last';
+  var el = document.getElementById('app');
+  function get(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  function set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+
+  // 初回：#k=鍵 で開かれたら、その機器に保存して URL から消す
+  var m = /[#&]k=([0-9a-f]{20,})/.exec(location.hash);
+  if (m) { set(KEY_NAME, m[1]); history.replaceState(null, '', location.pathname); }
+
+  function draw(data, note) {
+    try {
+      el.innerHTML = (note ? '<div class="stale">' + esc(note) + '</div>' : '') + renderPage(data, Date.now());
+    } catch (err) {
+      el.innerHTML = '<header><h1>業務の実施状況</h1></header><div class="stale">表示中にエラーが起きました：' + esc(err && err.message) + '</div>';
+    }
+  }
+
+  function keyForm(msg) {
+    el.innerHTML = '<header><h1>業務の実施状況</h1></header>' +
+      '<section><h2>見るための鍵</h2>' + (msg ? '<div class="stale">' + esc(msg) + '</div>' : '') +
+      '<p class="note">この機器で初めて開くときだけ、鍵を入れます。鍵はこの機器の中にだけ保存されます。</p>' +
+      '<form id="kf" style="display:grid;gap:8px;max-width:520px">' +
+      '<input id="kin" autocomplete="off" inputmode="text" style="font:inherit;padding:10px;border:1px solid var(--gray-l)" placeholder="鍵（英数字）">' +
+      '<button style="font:inherit;font-weight:700;padding:10px;border:0;background:var(--accent);color:#fff">保存して開く</button></form></section>';
+    document.getElementById('kf').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var v = (document.getElementById('kin').value || '').trim();
+      if (v) { set(KEY_NAME, v); load(); }
+    });
+  }
+
+  function load() {
+    var key = get(KEY_NAME);
+    if (!key) return keyForm('');
+    var cached = get(CACHE_NAME);
+    if (cached) { try { draw(JSON.parse(cached), '読み込み中…（前回の表示）'); } catch (e) {} }
+    else el.innerHTML = '<header><h1>業務の実施状況</h1><div class="note">読み込み中…</div></header>';
+    fetch(API + '?format=json&k=' + encodeURIComponent(key), { credentials: 'omit', cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || j.ok === false) { del(KEY_NAME); return keyForm('鍵が違うようです。もう一度入れてください。'); }
+        set(CACHE_NAME, JSON.stringify(j.status));
+        draw(j.status, '');
+      })
+      .catch(function () {
+        if (cached) { try { return draw(JSON.parse(cached), '通信できないため、前回の表示です'); } catch (e) {} }
+        el.innerHTML = '<header><h1>業務の実施状況</h1></header><div class="stale">通信できませんでした。電波のよい所で開き直してください。</div>';
+      });
+  }
+
+  load();
+  // アプリに戻ってきたら最新にする
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') load(); });
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
+})();
+</script>
+</body>
+</html>
