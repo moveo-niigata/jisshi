@@ -46,7 +46,7 @@ section{display:grid;gap:12px;min-width:0}
 @media (max-width:460px){.summary{grid-template-columns:1fr}}
 
 /* 工程表 */
-.gantt{display:grid;min-width:640px;font-size:12px}
+.gantt{display:grid;min-width:640px;font-size:12px;grid-template-columns:9.5em repeat(var(--days),minmax(16px,1fr))}
 .gantt .h{color:var(--gray-d);text-align:center;font-size:10px;padding-bottom:4px;border-bottom:1px solid var(--black)}
 .gantt .h.today{color:var(--accent);font-weight:700}
 .gantt .lab{padding:7px 8px 7px 0;font-size:13px;border-bottom:1px solid var(--gray-l);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -96,7 +96,7 @@ td .sub{display:block;font-size:11px;color:var(--gray-d);font-weight:400}
 .flow .ar.stop{color:var(--gray-l)}
 
 /* 7日表 */
-.heat{display:grid;grid-template-columns:minmax(12em,1.6fr) repeat(7,minmax(34px,1fr)) minmax(7em,1fr);min-width:640px;font-size:12px}
+.heat{display:grid;grid-template-columns:minmax(12em,1.6fr) repeat(var(--cols),minmax(34px,1fr)) minmax(7em,1fr);min-width:640px;font-size:12px}
 .heat .hd{color:var(--gray-d);text-align:center;padding-bottom:6px;font-size:11px;border-bottom:1px solid var(--black)}
 .heat .hd.l{text-align:left}
 .heat .grp{grid-column:1/-1;font-size:12px;color:var(--gray-d);font-weight:700;padding:14px 0 4px}
@@ -108,6 +108,63 @@ td .sub{display:block;font-size:11px;color:var(--gray-d);font-weight:400}
 .heat .cl i.n{color:var(--gray-l)}
 .heat .nx{padding:7px 0 7px 10px;color:var(--gray-d);border-bottom:1px solid var(--gray-l);font-size:12px;display:flex;align-items:center}
 .heat .nm.ng{font-weight:700;color:var(--red)}
+
+/* 毎月の業務：スマホ用のカード（PC では表を使う） */
+.mlist{display:none}
+.mcard{display:grid;gap:8px;padding:14px 0;border-bottom:1px solid var(--gray-l)}
+.mcard:first-child{border-top:1px solid var(--black)}
+.mcard .top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.mcard .nm{font-size:16px;font-weight:700;line-height:1.4}
+.mcard .sub{font-size:12px;color:var(--gray-d);overflow-wrap:anywhere}
+.mcard .steps{flex-wrap:wrap;white-space:normal;row-gap:4px}
+.mcard .st{font-size:14px}
+.mcard .meta{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px}
+.mcard .meta .bar{flex:1}
+.mcard .due{color:var(--gray-d);white-space:nowrap}
+.mcard .due b{color:var(--accent)}
+
+/* スマホ（幅700px以下）：横スクロールをなくし、縦に並べる */
+@media (max-width:700px){
+  body{font-size:16px}
+  .wrap{gap:36px;padding-block:20px 40px}
+  h1{font-size:21px}
+  h2{font-size:18px}
+  .note{font-size:13px}
+  .summary{grid-template-columns:auto 1fr;gap:4px 18px;align-items:center}
+  .big b{font-size:48px}
+  .summary .rest{font-size:14px;line-height:1.7}
+
+  .mtable{display:none}
+  .mlist{display:block}
+
+  /* 工程表：業務名を上の行に出し、日付のマスは画面幅いっぱいに */
+  .gantt{min-width:0;grid-template-columns:repeat(var(--days),1fr)}
+  .gantt .h0{display:none}
+  .gantt .h{font-size:10px;padding-bottom:6px;overflow:visible;white-space:nowrap}
+  .gantt .h.minor{color:transparent}
+  .gantt .lab{grid-column:1/-1;border-bottom:0;padding:12px 0 4px;font-size:14px;white-space:normal}
+  .gantt .c{min-height:26px}
+  .mk{width:10px;height:10px}
+  .mk.due{width:9px;height:9px}
+  .legend{font-size:13px;gap:10px 16px}
+
+  /* 録音の流れ：縦に */
+  .flow{flex-direction:column;min-width:0}
+  .node{grid-template-columns:1fr auto;align-items:baseline;gap:2px 12px;padding:10px 12px}
+  .node b{font-size:15px}
+  .node .s{font-size:14px;text-align:right}
+  .node .who{grid-column:1/-1;font-size:12px}
+  .flow .ar{width:auto;height:20px;transform:rotate(90deg);font-size:14px}
+
+  /* 自動化の直近7日：名前を上の行に */
+  .heat{min-width:0;grid-template-columns:repeat(var(--cols),1fr) auto}
+  .heat .hd.l:first-child{display:none}
+  .heat .hd{font-size:12px}
+  .heat .nm{grid-column:1/-1;border-bottom:0;padding:10px 0 2px;font-size:14px}
+  .heat .cl{padding:4px 2px}
+  .heat .cl i{max-width:none;height:20px}
+  .heat .nx{padding-left:8px;font-size:12px;white-space:nowrap}
+}
 
 footer{color:var(--gray-d);font-size:12px;border-top:1px solid var(--gray-l);padding-top:10px}
 </style>
@@ -187,8 +244,11 @@ function renderPage(data, nowMs) {
 
   /* 工程表 */
   if (monthly.length) {
-    var g = '<div class="gantt" style="grid-template-columns:9.5em repeat(' + days + ',minmax(16px,1fr))"><div class="h"></div>';
-    for (var d = 1; d <= days; d++) g += '<div class="h' + (d === today ? ' today' : '') + '">' + d + '</div>';
+    var g = '<div class="gantt" style="--days:' + days + '"><div class="h h0"></div>';
+    for (var d = 1; d <= days; d++) {
+      var major = d === 1 || d % 5 === 0 || d === today;
+      g += '<div class="h' + (d === today ? ' today' : '') + (major ? '' : ' minor') + '">' + d + '</div>';
+    }
     monthly.forEach(function (r) {
       var marks = r.marks || [];
       var dp = parts(r.due);
@@ -213,6 +273,7 @@ function renderPage(data, nowMs) {
 
   /* 毎月の業務 */
   if (monthly.length) {
+    var cards = '';
     var t = '<table><thead><tr><th>業務</th><th>段階（■ 済　□ まだ）</th><th>進み具合</th><th>状態</th><th>期限</th></tr></thead><tbody>';
     monthly.forEach(function (r) {
       var steps = r.steps || [];
@@ -240,9 +301,18 @@ function renderPage(data, nowMs) {
         '<td><div class="bar"><div class="track"><div class="fill" style="width:' + pct + '%"></div></div><span class="num">' + esc(pg.label || '') + '</span></div></td>' +
         '<td><span class="state' + stCls + '">' + stTxt + '</span></td>' +
         '<td class="num">' + due + '</td></tr>';
+      var cnm = esc(r.name);
+      if (lv === 'fail') cnm = '<span class="nm-fail">✕ ' + cnm + '</span>';
+      else if (lv === 'late') cnm = '<span style="color:var(--accent)">' + cnm + '</span>';
+      cards += '<div class="mcard"><div class="top"><span class="nm">' + cnm + '</span>' +
+        '<span class="state' + stCls + '">' + stTxt + '</span></div>' +
+        (r.note ? '<div class="sub">' + esc(r.note) + '</div>' : '') +
+        '<div class="steps">' + st + '</div>' +
+        '<div class="meta"><div class="bar"><div class="track"><div class="fill" style="width:' + pct + '%"></div></div><span class="num">' + esc(pg.label || '') + '</span></div>' +
+        '<span class="due">期限 ' + due + '</span></div></div>';
     });
     t += '</tbody></table>';
-    h += '<section><h2>毎月の業務 <small>成果物と状態ファイルから自動で判定</small></h2><div class="scroll">' + t + '</div></section>';
+    h += '<section><h2>毎月の業務 <small>成果物と状態ファイルから自動で判定</small></h2><div class="scroll mtable">' + t + '</div><div class="mlist">' + cards + '</div></section>';
   }
 
   /* 録音の流れ */
@@ -266,7 +336,7 @@ function renderPage(data, nowMs) {
   var ad = au.days || [];
   if (ad.length && (au.groups || []).length) {
     var cols = ad.length;
-    var s = '<div class="heat" style="grid-template-columns:minmax(12em,1.6fr) repeat(' + cols + ',minmax(34px,1fr)) minmax(7em,1fr)">' +
+    var s = '<div class="heat" style="--cols:' + cols + '">' +
       '<div class="hd l">自動化</div>' +
       ad.map(function (x) { var p = parts(x); return '<div class="hd">' + (p ? p.d + '日' : esc(x)) + '</div>'; }).join('') +
       '<div class="hd l">次回</div>';
