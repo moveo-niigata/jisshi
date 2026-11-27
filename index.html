@@ -72,8 +72,10 @@ td .sub{display:block;font-size:11px;color:var(--gray-d);font-weight:400}
 .state.fail{font-weight:700;color:var(--red)}
 .state.unk{color:var(--gray-d)}
 .nm-fail{font-weight:700;color:var(--red)}
-.steps{display:flex;align-items:center;flex-wrap:nowrap;gap:0;white-space:nowrap}
-.st{font-size:12px}
+.mtable th:first-child,.mtable td:first-child{width:12em;min-width:12em}
+.mtable th:nth-child(3),.mtable td:nth-child(3){width:9em}
+.steps{display:flex;align-items:center;flex-wrap:wrap;row-gap:4px;gap:0}
+.st{font-size:12px;white-space:nowrap}
 .st::before{content:"□ ";color:var(--gray-d)}
 .st.d::before{content:"■ ";color:var(--black)}
 .st.n{font-weight:700}
